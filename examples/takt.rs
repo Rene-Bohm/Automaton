@@ -18,24 +18,41 @@ fn main() {
     let inp2 = Arc::clone(&inp); // This clone goes into Thread 2
 
     let clock = thread::spawn(move || loop {
-        let current = !*b1.lock().unwrap();
+        let lock = b1.lock().unwrap();
+        let current = !*lock;
+        drop(lock);
+
         thread::sleep(dur);
-        *b1.lock().unwrap() = current;
-        if *inp1.lock().unwrap() == "break" {
+        let mut lock = b1.lock().unwrap();
+        *lock = current;
+        drop(lock);
+
+        if *inp1.lock().unwrap() == "break\n" {
             break;
         }
     });
 
     let display = thread::spawn(move || loop {
+        
+        thread::sleep(Duration::from_millis(1000));
         println!("{:?}", *b2.lock().unwrap());
         print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-        if *inp2.lock().unwrap() == "break" {
+
+        let val = inp2.lock().unwrap().clone();
+        if val == "break\n" {
             break;
         }
     });
 
     loop {
-        let x = io::stdin().read_line(&mut *inp.lock().unwrap());
+        println!("> ");
+        // std::io::stdout().flush().unwrap();
+        let mut s = String::new();
+        let _ = io::stdin().lock().read_line(&mut s).expect("");
+        *inp.lock().unwrap() = s.clone();
+        if s == "break\n" {
+            break;
+        }
     }
 
     clock.join().unwrap();
